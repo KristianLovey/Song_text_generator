@@ -156,4 +156,3 @@ Projekt uspješno demonstrira primjenu rekurentnih neuronskih mreža u kreativno
 
 Projekt izrađen u sklopu kolegija **Neuronske mreže**.
 
-```
