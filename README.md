@@ -1,24 +1,30 @@
-
 # Generiranje tekstova pjesama pomoću RNN (LSTM / GRU)
 
 ## Opis projekta
-Ovaj projekt bavi se automatskim generiranjem tekstova pjesama na engleskom jeziku korištenjem rekurentnih neuronskih mreža (RNN). Implementirane su dvije arhitekture – **LSTM** i **GRU** – koje se treniraju nad korpusom tekstova pjesama te se uspoređuju prema perpleksnosti i subjektivnoj kvaliteti generiranog teksta. Cilj projekta je demonstrirati sposobnost neuronskih mreža da nauče jezične obrasce, strukturu stihova i stil glazbenih tekstova.
+Ovaj projekt bavi se automatskim generiranjem tekstova pjesama na engleskom jeziku korištenjem rekurentnih neuronskih mreža (RNN). U sklopu projekta implementirana je **vlastita neuronska mreža** temeljena na arhitekturama **LSTM** i **GRU**, bez korištenja gotovih modela za generiranje teksta. Modeli se treniraju na velikom korpusu tekstova pjesama te se uspoređuju prema perpleksnosti i subjektivnoj kvaliteti generiranog teksta.
+
+Cilj projekta je demonstrirati sposobnost RNN modela da nauče jezične obrasce, strukturu stihova i stil glazbenih tekstova na razini znakova (character-level).
 
 ---
 
 ## Dataset
-Za treniranje modela koriste se javno dostupni skupovi podataka s tekstovima pjesama:
-- **Kaggle Lyrics Dataset** (razni izvođači i žanrovi)
-- alternativno: tekstovi dohvaćeni putem **Genius API-ja**
+Za treniranje modela korišten je javno dostupan dataset:
 
-Za testiranje i provjeru ispravnosti pipelinea uključen je mali **sintetički dataset**:
+- **Song Lyrics Dataset (Kaggle)**  
+  Autor: *deepshah16*  
+  Sadrži tekstove pjesama različitih izvođača i žanrova.
+
+Iz izvornog dataseta izgrađen je jedinstveni tekstualni korpus:
+
 ```
 
-data/sample/lyrics_small.txt
+data/raw/corpus.txt
 
 ```
 
-Podaci su obrađeni na **character-level** razini, gdje svaki znak predstavlja jedan element ulazne sekvence.
+Korpus je dobiven spajanjem svih tekstova pjesama u jednu datoteku te služi kao ulaz u proces predobrade.
+
+Podaci se obrađuju na **character-level** razini, gdje svaki znak predstavlja jedan element ulazne sekvence.
 
 ---
 
@@ -27,21 +33,20 @@ Podaci su obrađeni na **character-level** razini, gdje svaki znak predstavlja j
 
 .
 ├── src/
-│   ├── model_common.py      # Definicija LSTM / GRU neuronske mreže
-│   ├── train_lstm.py        # Treniranje LSTM modela
-│   ├── train_gru.py         # Treniranje GRU modela
-│   ├── data_prep.py         # Čišćenje i tokenizacija podataka
-│   ├── generate.py          # Generiranje novih tekstova pjesama
-│   ├── eval.py              # Evaluacija modela (perpleksnost)
-│   └── fetch_datasets.py    # Upute za dohvat datasetova
+│   ├── model.py          # Vlastita implementacija LSTM / GRU neuronske mreže
+│   ├── train.py          # Treniranje modela (LSTM ili GRU)
+│   ├── data_prep.py      # Predobrada: iz corpus.txt u dataset.npz + vocab.json
+│   ├── generate.py       # Generiranje novih tekstova pjesama
+│   └── eval.py           # Evaluacija modela (perpleksnost)
 ├── data/
-│   ├── raw/                 # Sirovi tekstovi pjesama
-│   ├── processed/           # Tokenizirani dataset
-│   └── sample/              # Testni dataset
-├── models/                  # Spremljeni modeli
-├── outputs/                 # Generirani tekstovi
-├── reports/                 # Izvještaj i prezentacija
-├── requirements.txt
+│   ├── raw/
+│   │   └── corpus.txt    # Sirovi tekstualni korpus
+│   └── processed/
+│       ├── dataset.npz   # Numerički kodiran tekst
+│       └── vocab.json    # Mapiranje znak ↔ indeks
+├── models/               # Spremljeni trenirani modeli
+├── outputs/              # Generirani tekstovi
+├── projekt.ipynb         # Notebook za rad s datasetom
 └── README.md
 
 ````
@@ -52,24 +57,29 @@ Podaci su obrađeni na **character-level** razini, gdje svaki znak predstavlja j
 - Character-level modeliranje teksta  
 - Embedding sloj za reprezentaciju znakova  
 - Rekurentne neuronske mreže:
-  - LSTM (Long Short-Term Memory)
-  - GRU (Gated Recurrent Unit)
+  - **LSTM (Long Short-Term Memory)**
+  - **GRU (Gated Recurrent Unit)**
 - Cross-entropy loss funkcija  
 - AdamW optimizator  
 - Dropout i gradient clipping  
+
+Implementacija je izrađena korištenjem **PyTorch** biblioteke.
 
 ---
 
 ## Instalacija
 ```bash
-pip install -r requirements.txt
+pip install torch numpy
 ````
 
-Preporučeno je koristiti Python 3.10+ i PyTorch s CUDA podrškom ako je dostupna.
+Preporučeno je koristiti **Python 3.10+**.
+Ako je dostupna CUDA podrška, PyTorch će automatski koristiti GPU.
 
 ---
 
 ## Predobrada podataka
+
+Iz sirovog korpusa (`corpus.txt`) generira se dataset pogodan za treniranje:
 
 ```bash
 python src/data_prep.py --input data/raw --output data/processed --seq-len 128
@@ -77,7 +87,7 @@ python src/data_prep.py --input data/raw --output data/processed --seq-len 128
 
 Rezultat predobrade su:
 
-* `dataset.npz` – numerički kodirani tekst
+* `dataset.npz` – tekst kodiran kao niz indeksa znakova
 * `vocab.json` – mapiranje znak ↔ indeks
 
 ---
@@ -87,49 +97,58 @@ Rezultat predobrade su:
 ### LSTM
 
 ```bash
-python src/train_lstm.py --data data/processed/dataset.npz --epochs 5
+python src/train.py --cell lstm --epochs 10
 ```
 
 ### GRU
 
 ```bash
-python src/train_gru.py --data data/processed/dataset.npz --epochs 5
+python src/train.py --cell gru --epochs 10
 ```
 
-Trenirani modeli spremaju se u direktorij `models/`.
+Trenirani modeli spremaju se u direktorij:
+
+```
+models/
+```
 
 ---
 
 ## Generiranje teksta
 
+Nakon treniranja moguće je generirati nove tekstove pjesama:
+
 ```bash
 python src/generate.py \
   --checkpoint models/lstm_last.pt \
-  --prompt "under neon" \
-  --steps 400 \
+  --prompt "love is " \
+  --steps 500 \
   --temperature 1.1 \
   --top-k 50
 ```
 
-Generirani tekst se sprema u `outputs/generated.txt`.
+Generirani tekst sprema se u direktorij `outputs/`.
 
 ---
 
 ## Evaluacija
 
-Modeli se evaluiraju pomoću **perpleksnosti**, koja mjeri koliko dobro model predviđa sljedeći znak:
+Kvaliteta modela mjeri se pomoću **perpleksnosti**, koja opisuje koliko dobro model predviđa sljedeći znak u sekvenci:
 
 ```bash
-python src/eval.py --checkpoint models/lstm_last.pt --data data/processed/dataset.npz
+python src/eval.py --checkpoint models/lstm_last.pt
+python src/eval.py --checkpoint models/gru_last.pt
 ```
 
-Niža perpleksnost označava bolju kvalitetu modela.
+Niža vrijednost perpleksnosti označava bolji model.
 
 ---
 
 ## Rezultati i zaključak
 
-Dobiveni rezultati pokazuju da oba modela mogu generirati strukturirane tekstove pjesama. LSTM i GRU postižu usporedive rezultate, pri čemu GRU koristi manji broj parametara i brže konvergira. Projekt uspješno demonstrira primjenu dubokog učenja u kreativnom području obrade prirodnog jezika.
+Rezultati pokazuju da oba modela (LSTM i GRU) mogu generirati koherentne i strukturirane tekstove pjesama. GRU model postiže usporedive rezultate s LSTM-om uz manji broj parametara i bržu konvergenciju, dok LSTM pokazuje stabilnije učenje na duljim sekvencama.
+
+Projekt uspješno demonstrira primjenu rekurentnih neuronskih mreža u kreativnom području obrade prirodnog jezika.
 
 ---
 
@@ -137,4 +156,4 @@ Dobiveni rezultati pokazuju da oba modela mogu generirati strukturirane tekstove
 
 Projekt izrađen u sklopu kolegija **Neuronske mreže**.
 
-
+```
